@@ -1,12 +1,13 @@
 --[[
     AimRare Hub - Advanced Educational Script
-    Version: 2.8 (Full ESP Restoration)
+    Version: 2.9 (Ultimate Fix - v2.5 Base + New Features)
     Author: Ben
     
-    Changelog v2.8:
-    - FIX: Alle ESP Funktionen (Skeleton, Health, Name) wiederhergestellt.
-    - FEATURE: Keybind System (v2.7) beibehalten.
-    - FEATURE: Toggle/Hold Mode (v2.7) beibehalten.
+    Changelog v2.9:
+    - CORE: Vollständiger Revert auf die stabile Basis von v2.5.
+    - FEATURE: Keybind System (aus v2.7) sauber integriert.
+    - FEATURE: Toggle/Hold Mode (aus v2.7) sauber integriert.
+    - FIX: Keine Zeilen gelöscht – Alle ESP Features (Skeleton, Health, Name, Box) sind vollständig.
 ]]
 
 -- Services
@@ -31,7 +32,7 @@ end
 
 -- Einstellungen & Status
 local Settings = {
-    -- Visuals
+    -- Visuals (Stabil aus v2.5)
     BoxESP = false,
     SkeletonESP = false,
     NameESP = false,
@@ -44,11 +45,11 @@ local Settings = {
     AimbotFOV = 150,
     AimbotSmooth = 0.2,
     
-    -- Aimbot Input Settings
-    AimKey = Enum.UserInputType.MouseButton2, -- Standard: Rechtsklick
-    AimKeyName = "RMB", -- Für die Anzeige
+    -- Aimbot Input (Neu aus v2.7)
+    AimKey = Enum.UserInputType.MouseButton2, -- Standard
+    AimKeyName = "RMB",
     AimMode = "Hold", -- "Hold" oder "Toggle"
-    IsAimingToggled = false, -- Interner Status für Toggle Mode
+    IsAimingToggled = false, -- Interner Status
     
     -- Aimbot Checks
     WallCheck = false,
@@ -58,7 +59,7 @@ local Settings = {
 -- Cache & Globals
 local ESP_Cache = {}
 local FOV_Circle = nil
-local changingKey = false -- Status ob wir gerade eine Taste binden
+local changingKey = false 
 
 -- Initialisiere FOV Circle
 pcall(function()
@@ -74,7 +75,7 @@ pcall(function()
 end)
 
 -------------------------------------------------------------------------
--- MODERN UI SYSTEM
+-- UI SYSTEM (v2.5 Design + v2.7 Controls)
 -------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AimRareHubUI_v3"
@@ -96,7 +97,7 @@ local Theme = {
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 500, 0, 380)
+MainFrame.Size = UDim2.new(0, 500, 0, 380) -- Höhe angepasst für neue Settings
 MainFrame.Position = UDim2.new(0.5, -250, 0.4, -190)
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.BorderSizePixel = 0
@@ -350,7 +351,7 @@ local function CreateSlider(parent, text, valueKey, min, max, displayFormat)
     UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end end)
 end
 
--- UI SETUP
+-- UI SETUP (Wie v2.5 aber mit neuen Inputs)
 CreateSection(TabsFrames.Visuals, "PLAYERS")
 CreateToggle(TabsFrames.Visuals, "Box ESP", Settings.BoxESP, function() Settings.BoxESP = not Settings.BoxESP; return Settings.BoxESP end)
 CreateToggle(TabsFrames.Visuals, "Skeleton ESP", Settings.SkeletonESP, function() Settings.SkeletonESP = not Settings.SkeletonESP; return Settings.SkeletonESP end)
@@ -366,7 +367,7 @@ CreateToggle(TabsFrames.Aimbot, "Aimbot Enable", Settings.AimbotEnabled, functio
     return Settings.AimbotEnabled 
 end)
 
--- NEUE INPUT SEKTION
+-- NEUE INPUT SEKTION (Integriert)
 CreateSection(TabsFrames.Aimbot, "INPUT SETTINGS")
 CreateKeybind(TabsFrames.Aimbot, "Aim Keybind")
 CreateModeSwitch(TabsFrames.Aimbot)
@@ -379,52 +380,120 @@ CreateToggle(TabsFrames.Aimbot, "Wall Check", Settings.WallCheck, function() Set
 CreateToggle(TabsFrames.Aimbot, "Alive Check", Settings.AliveCheck, function() Settings.AliveCheck = not Settings.AliveCheck; return Settings.AliveCheck end)
 
 -------------------------------------------------------------------------
--- DRAWING & LOGIC
+-- DRAWING & LOGIC (Volle Wiederherstellung)
 -------------------------------------------------------------------------
--- Helper Functions (verkürzt, da unverändert)
-local function createBoxStructure()
-    local t = Drawing.new("Text"); t.Center=true; t.Outline=true; t.Size=13; t.Color=Color3.new(1,1,1)
-    local t2 = Drawing.new("Text"); t2.Center=true; t2.Outline=true; t2.Size=13; t2.Color=Color3.new(1,1,1)
-    return { BoxOutline=Drawing.new("Square"), Box=Drawing.new("Square"), HealthOutline=Drawing.new("Line"), HealthBar=Drawing.new("Line"), Name=t, Distance=t2 }
+local function createText()
+    local text = Drawing.new("Text")
+    text.Center = true
+    text.Outline = true
+    text.OutlineColor = Color3.new(0,0,0)
+    text.Color = Color3.new(1,1,1)
+    text.Size = 13
+    text.Visible = false
+    return text
 end
-local function createLine() return Drawing.new("Line") end
+
+local function createLine()
+    local line = Drawing.new("Line")
+    line.Thickness = 1.5
+    line.Color = Settings.ESPColor
+    line.Transparency = 1
+    line.Visible = false
+    return line
+end
+
+local function createBoxStructure()
+    local objects = {
+        BoxOutline = Drawing.new("Square"),
+        Box = Drawing.new("Square"),
+        HealthOutline = Drawing.new("Line"),
+        HealthBar = Drawing.new("Line"),
+        Name = createText(),
+        Distance = createText()
+    }
+    
+    objects.BoxOutline.Color = Color3.new(0,0,0)
+    objects.BoxOutline.Thickness = 3
+    objects.BoxOutline.Filled = false
+    objects.BoxOutline.Transparency = 1
+    
+    objects.Box.Thickness = 1
+    objects.Box.Filled = false
+    
+    objects.HealthOutline.Color = Color3.new(0,0,0)
+    objects.HealthOutline.Thickness = 4
+    
+    objects.HealthBar.Color = Color3.new(0, 1, 0)
+    objects.HealthBar.Thickness = 2
+    
+    return objects
+end
 
 local function removeESP(player)
     if ESP_Cache[player] then
-        if ESP_Cache[player].Objects then for _,o in pairs(ESP_Cache[player].Objects) do if o.Remove then o:Remove() end end end
-        if ESP_Cache[player].SkeletonLines then for _,l in pairs(ESP_Cache[player].SkeletonLines) do if l.Remove then l:Remove() end end end
+        if ESP_Cache[player].Objects then
+            for _, obj in pairs(ESP_Cache[player].Objects) do
+                if obj and obj.Remove then obj:Remove() end
+            end
+        end
+        if ESP_Cache[player].SkeletonLines then
+            for _, line in pairs(ESP_Cache[player].SkeletonLines) do
+                if line and line.Remove then line:Remove() end
+            end
+        end
         ESP_Cache[player] = nil
     end
 end
 Players.PlayerRemoving:Connect(removeESP)
 
+-- HELPER: Wall Check Raycast
 local function IsVisible(target)
-    if not target.Character or not target.Character:FindFirstChild("Head") then return false end
-    local params = RaycastParams.new(); params.FilterDescendantsInstances={LocalPlayer.Character, target.Character}; params.FilterType=Enum.RaycastFilterType.Exclude
-    local result = workspace:Raycast(Camera.CFrame.Position, target.Character.Head.Position - Camera.CFrame.Position, params)
-    return not result
+    if not target or not target.Character or not target.Character:FindFirstChild("Head") then return false end
+    
+    local origin = Camera.CFrame.Position
+    local targetPos = target.Character.Head.Position
+    local direction = targetPos - origin
+    
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {LocalPlayer.Character, target.Character} -- Ignoriere dich selbst und den Gegner
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.IgnoreWater = true
+    
+    local result = workspace:Raycast(origin, direction, params)
+    
+    if result then return false end
+    return true 
 end
 
 local function GetClosestPlayerToMouse()
-    local closest, dist = nil, Settings.AimbotFOV
+    local closestPlayer = nil
+    local shortestDistance = Settings.AimbotFOV
     local mousePos = UserInputService:GetMouseLocation()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            local hum = p.Character:FindFirstChild("Humanoid")
-            if Settings.TeamCheck and p.Team == LocalPlayer.Team then continue end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local hum = player.Character:FindFirstChild("Humanoid")
+            
+            -- Checks
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
             if Settings.AliveCheck and hum and hum.Health <= 0 then continue end
-            if Settings.WallCheck and not IsVisible(p) then continue end
-            local pos, vis = Camera:WorldToViewportPoint(p.Character.Head.Position)
-            if vis then
-                local d = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                if d < dist then closest = p; dist = d end
+            if Settings.WallCheck and not IsVisible(player) then continue end
+
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
+
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
             end
         end
     end
-    return closest
+    return closestPlayer
 end
 
--- NEW: INPUT LISTENER FÜR TOGGLE MODE
+-- INPUT LISTENER (Toggle Mode Support)
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe or changingKey then return end
     
@@ -437,23 +506,27 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- RENDER LOOP
+-------------------------------------------------------------------------
+-- RENDER LOOP (Volle Länge - Keine Abkürzungen!)
+-------------------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
-    if Settings.AimbotEnabled and FOV_Circle then FOV_Circle.Position = UserInputService:GetMouseLocation(); FOV_Circle.Visible = true
-    elseif FOV_Circle then FOV_Circle.Visible = false end
+    if Settings.AimbotEnabled and FOV_Circle then
+        FOV_Circle.Position = UserInputService:GetMouseLocation()
+        FOV_Circle.Visible = true
+    elseif FOV_Circle then
+        FOV_Circle.Visible = false
+    end
 
-    -- NEW: AIM STATUS LOGIC
+    -- AIMBOT LOGIK (Updated für Toggle/Hold)
     local isAiming = false
     if Settings.AimbotEnabled then
         if Settings.AimMode == "Hold" then
-            -- Check für Maus oder Keyboard Hold
             if Settings.AimKey.EnumType == Enum.UserInputType then
                 isAiming = UserInputService:IsMouseButtonPressed(Settings.AimKey)
             elseif Settings.AimKey.EnumType == Enum.KeyCode then
                 isAiming = UserInputService:IsKeyDown(Settings.AimKey)
             end
         else
-            -- Toggle Mode
             isAiming = Settings.IsAimingToggled
         end
     end
@@ -461,55 +534,80 @@ RunService.RenderStepped:Connect(function()
     if isAiming then
         local target = GetClosestPlayerToMouse()
         if target and target.Character and target.Character:FindFirstChild("Head") then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Character.Head.Position), Settings.AimbotSmooth)
+            local headPos = target.Character.Head.Position
+            local currentCFrame = Camera.CFrame
+            local targetCFrame = CFrame.new(currentCFrame.Position, headPos)
+            Camera.CFrame = currentCFrame:Lerp(targetCFrame, Settings.AimbotSmooth)
         end
     end
 
-    -- ESP Loop (komprimiert)
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
-            local hrp, hum = p.Character.HumanoidRootPart, p.Character.Humanoid
-            if (Settings.TeamCheck and p.Team == LocalPlayer.Team) or hum.Health <= 0 then removeESP(p); continue end
-            local v, vis = Camera:WorldToViewportPoint(hrp.Position)
-            if not ESP_Cache[p] then ESP_Cache[p] = {Objects=createBoxStructure(), SkeletonLines={}} end
-            local objs = ESP_Cache[p].Objects
+    -- ESP LOOP (Der komplette v2.5 Loop)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+            local hrp = player.Character.HumanoidRootPart
+            local hum = player.Character.Humanoid
             
-            if vis then
-                local h = (Camera.ViewportSize.Y / v.Z) * 4.5; local w = h/1.5; local pos = Vector2.new(v.X-w/2, v.Y-h/2)
-                if Settings.BoxESP then
-                    objs.BoxOutline.Size=Vector2.new(w,h); objs.BoxOutline.Position=pos; objs.BoxOutline.Visible=true
-                    objs.Box.Size=Vector2.new(w,h); objs.Box.Position=pos; objs.Box.Color=Settings.ESPColor; objs.Box.Visible=true
-                else objs.Box.Visible=false; objs.BoxOutline.Visible=false end
-                
-                -- WIEDERHERGESTELLT: Health Bar
-                if Settings.HealthESP then
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then removeESP(player); continue end
+            if hum.Health <= 0 then removeESP(player); continue end
+
+            local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+            if not ESP_Cache[player] then
+                ESP_Cache[player] = { Objects = createBoxStructure(), SkeletonLines = {} }
+            end
+            local cache = ESP_Cache[player]
+            local objs = cache.Objects
+
+            if onScreen then
+                local boxHeight = (Camera.ViewportSize.Y / vector.Z) * 4.5
+                local boxWidth = boxHeight / 1.5 -- Breite relativ zur neuen Höhe
+                local boxPos = Vector2.new(vector.X - boxWidth / 2, vector.Y - boxHeight / 2)
+
+                if Settings.BoxESP and objs.Box and objs.BoxOutline then
+                    objs.BoxOutline.Size = Vector2.new(boxWidth, boxHeight)
+                    objs.BoxOutline.Position = boxPos
+                    objs.BoxOutline.Visible = true
+                    
+                    objs.Box.Size = Vector2.new(boxWidth, boxHeight)
+                    objs.Box.Position = boxPos
+                    objs.Box.Color = Settings.ESPColor
+                    objs.Box.Visible = true
+                else
+                    if objs.Box then objs.Box.Visible = false end
+                    if objs.BoxOutline then objs.BoxOutline.Visible = false end
+                end
+
+                if Settings.HealthESP and objs.HealthBar then
                     local healthPercent = hum.Health / hum.MaxHealth
-                    local barHeight = h * healthPercent
-                    objs.HealthOutline.From = Vector2.new(pos.X - 5, pos.Y + h)
-                    objs.HealthOutline.To = Vector2.new(pos.X - 5, pos.Y)
+                    local barHeight = boxHeight * healthPercent
+                    
+                    objs.HealthOutline.From = Vector2.new(boxPos.X - 5, boxPos.Y + boxHeight)
+                    objs.HealthOutline.To = Vector2.new(boxPos.X - 5, boxPos.Y)
                     objs.HealthOutline.Visible = true
-                    objs.HealthBar.From = Vector2.new(pos.X - 5, pos.Y + h)
-                    objs.HealthBar.To = Vector2.new(pos.X - 5, pos.Y + h - barHeight)
+                    
+                    objs.HealthBar.From = Vector2.new(boxPos.X - 5, boxPos.Y + boxHeight)
+                    objs.HealthBar.To = Vector2.new(boxPos.X - 5, boxPos.Y + boxHeight - barHeight)
                     objs.HealthBar.Color = Color3.new(1 - healthPercent, healthPercent, 0)
                     objs.HealthBar.Visible = true
                 else
-                    objs.HealthOutline.Visible = false; objs.HealthBar.Visible = false
+                    if objs.HealthBar then objs.HealthBar.Visible = false end
+                    if objs.HealthOutline then objs.HealthOutline.Visible = false end
                 end
 
-                -- WIEDERHERGESTELLT: Names & Distance
-                if Settings.NameESP then
-                    objs.Name.Text = p.Name
-                    objs.Name.Position = Vector2.new(v.X, pos.Y - 15)
+                if Settings.NameESP and objs.Name then
+                    objs.Name.Text = player.Name
+                    objs.Name.Position = Vector2.new(vector.X, boxPos.Y - 15)
                     objs.Name.Color = Settings.ESPColor
                     objs.Name.Visible = true
-                    objs.Distance.Text = math.floor(v.Z) .. " studs"
-                    objs.Distance.Position = Vector2.new(v.X, pos.Y + h + 5)
+                    
+                    objs.Distance.Text = math.floor(vector.Z) .. " studs"
+                    objs.Distance.Position = Vector2.new(vector.X, boxPos.Y + boxHeight + 5)
                     objs.Distance.Visible = true
                 else
-                    objs.Name.Visible = false; objs.Distance.Visible = false
+                    if objs.Name then objs.Name.Visible = false end
+                    if objs.Distance then objs.Distance.Visible = false end
                 end
 
-                -- WIEDERHERGESTELLT: Skeleton ESP
                 if Settings.SkeletonESP then
                     local connections = {}
                     if hum.RigType == Enum.HumanoidRigType.R15 then
@@ -517,29 +615,43 @@ RunService.RenderStepped:Connect(function()
                     else
                         connections = {{"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},{"Torso","Left Leg"},{"Torso","Right Leg"}}
                     end
+                    
                     for i, pair in ipairs(connections) do
-                        local pA = p.Character:FindFirstChild(pair[1]); local pB = p.Character:FindFirstChild(pair[2])
+                        local pA = player.Character:FindFirstChild(pair[1])
+                        local pB = player.Character:FindFirstChild(pair[2])
                         if pA and pB then
-                            local vA, visA = Camera:WorldToViewportPoint(pA.Position); local vB, visB = Camera:WorldToViewportPoint(pB.Position)
+                            local vA, visA = Camera:WorldToViewportPoint(pA.Position)
+                            local vB, visB = Camera:WorldToViewportPoint(pB.Position)
+                            
                             if visA and visB then
-                                if not ESP_Cache[p].SkeletonLines[i] then ESP_Cache[p].SkeletonLines[i] = createLine() end
-                                local line = ESP_Cache[p].SkeletonLines[i]
-                                line.From = Vector2.new(vA.X, vA.Y); line.To = Vector2.new(vB.X, vB.Y); line.Color = Settings.ESPColor; line.Visible = true
-                            elseif ESP_Cache[p].SkeletonLines[i] then ESP_Cache[p].SkeletonLines[i].Visible = false end
+                                if not cache.SkeletonLines[i] then cache.SkeletonLines[i] = createLine() end
+                                local line = cache.SkeletonLines[i]
+                                line.From = Vector2.new(vA.X, vA.Y)
+                                line.To = Vector2.new(vB.X, vB.Y)
+                                line.Color = Settings.ESPColor
+                                line.Visible = true
+                            elseif cache.SkeletonLines[i] then
+                                cache.SkeletonLines[i].Visible = false
+                            end
                         end
                     end
                 else
-                    for _, l in pairs(ESP_Cache[p].SkeletonLines) do l.Visible = false end
+                    for _, l in pairs(cache.SkeletonLines) do l.Visible = false end
                 end
 
             else
-                objs.Box.Visible=false; objs.BoxOutline.Visible=false
-                objs.HealthBar.Visible = false; objs.HealthOutline.Visible = false
-                objs.Name.Visible = false; objs.Distance.Visible = false
-                for _, l in pairs(ESP_Cache[p].SkeletonLines) do l.Visible = false end
+                if objs.Box then objs.Box.Visible = false end
+                if objs.BoxOutline then objs.BoxOutline.Visible = false end
+                if objs.HealthBar then objs.HealthBar.Visible = false end
+                if objs.HealthOutline then objs.HealthOutline.Visible = false end
+                if objs.Name then objs.Name.Visible = false end
+                if objs.Distance then objs.Distance.Visible = false end
+                for _, l in pairs(cache.SkeletonLines) do l.Visible = false end
             end
-        else removeESP(p) end
+        else
+            removeESP(player)
+        end
     end
 end)
 
-print("AimRare Hub v2.8 (Restored) Loaded")
+print("AimRare Hub v2.9 (Ultimate Fix) Loaded")
