@@ -1,12 +1,12 @@
 --[[
     AimRare Hub - Advanced Educational Script
-    Version: 2.7 (Keybind & Toggle Mode)
+    Version: 2.8 (Full ESP Restoration)
     Author: Ben
     
-    Changelog v2.7:
-    - FEATURE: Keybind System hinzugefügt (Klicke Button -> Drücke Taste).
-    - FEATURE: Aim Mode hinzugefügt (Hold vs Toggle).
-    - LOGIC: Input Handling komplett überarbeitet für Keyboard & Maus Support.
+    Changelog v2.8:
+    - FIX: Alle ESP Funktionen (Skeleton, Health, Name) wiederhergestellt.
+    - FEATURE: Keybind System (v2.7) beibehalten.
+    - FEATURE: Toggle/Hold Mode (v2.7) beibehalten.
 ]]
 
 -- Services
@@ -44,7 +44,7 @@ local Settings = {
     AimbotFOV = 150,
     AimbotSmooth = 0.2,
     
-    -- Aimbot Input Settings (NEU)
+    -- Aimbot Input Settings
     AimKey = Enum.UserInputType.MouseButton2, -- Standard: Rechtsklick
     AimKeyName = "RMB", -- Für die Anzeige
     AimMode = "Hold", -- "Hold" oder "Toggle"
@@ -96,7 +96,7 @@ local Theme = {
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 500, 0, 380) -- Etwas höher für neue Settings
+MainFrame.Size = UDim2.new(0, 500, 0, 380)
 MainFrame.Position = UDim2.new(0.5, -250, 0.4, -190)
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.BorderSizePixel = 0
@@ -481,13 +481,65 @@ RunService.RenderStepped:Connect(function()
                     objs.Box.Size=Vector2.new(w,h); objs.Box.Position=pos; objs.Box.Color=Settings.ESPColor; objs.Box.Visible=true
                 else objs.Box.Visible=false; objs.BoxOutline.Visible=false end
                 
-                -- Healthbar, Name, Skeleton Logic hier identisch zu v2.6 (ausgeblendet für Platz)
-                -- (Der Rest der ESP Logik bleibt erhalten und funktioniert wie vorher)
+                -- WIEDERHERGESTELLT: Health Bar
+                if Settings.HealthESP then
+                    local healthPercent = hum.Health / hum.MaxHealth
+                    local barHeight = h * healthPercent
+                    objs.HealthOutline.From = Vector2.new(pos.X - 5, pos.Y + h)
+                    objs.HealthOutline.To = Vector2.new(pos.X - 5, pos.Y)
+                    objs.HealthOutline.Visible = true
+                    objs.HealthBar.From = Vector2.new(pos.X - 5, pos.Y + h)
+                    objs.HealthBar.To = Vector2.new(pos.X - 5, pos.Y + h - barHeight)
+                    objs.HealthBar.Color = Color3.new(1 - healthPercent, healthPercent, 0)
+                    objs.HealthBar.Visible = true
+                else
+                    objs.HealthOutline.Visible = false; objs.HealthBar.Visible = false
+                end
+
+                -- WIEDERHERGESTELLT: Names & Distance
+                if Settings.NameESP then
+                    objs.Name.Text = p.Name
+                    objs.Name.Position = Vector2.new(v.X, pos.Y - 15)
+                    objs.Name.Color = Settings.ESPColor
+                    objs.Name.Visible = true
+                    objs.Distance.Text = math.floor(v.Z) .. " studs"
+                    objs.Distance.Position = Vector2.new(v.X, pos.Y + h + 5)
+                    objs.Distance.Visible = true
+                else
+                    objs.Name.Visible = false; objs.Distance.Visible = false
+                end
+
+                -- WIEDERHERGESTELLT: Skeleton ESP
+                if Settings.SkeletonESP then
+                    local connections = {}
+                    if hum.RigType == Enum.HumanoidRigType.R15 then
+                         connections = {{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},{"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},{"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},{"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},{"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"}}
+                    else
+                        connections = {{"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},{"Torso","Left Leg"},{"Torso","Right Leg"}}
+                    end
+                    for i, pair in ipairs(connections) do
+                        local pA = p.Character:FindFirstChild(pair[1]); local pB = p.Character:FindFirstChild(pair[2])
+                        if pA and pB then
+                            local vA, visA = Camera:WorldToViewportPoint(pA.Position); local vB, visB = Camera:WorldToViewportPoint(pB.Position)
+                            if visA and visB then
+                                if not ESP_Cache[p].SkeletonLines[i] then ESP_Cache[p].SkeletonLines[i] = createLine() end
+                                local line = ESP_Cache[p].SkeletonLines[i]
+                                line.From = Vector2.new(vA.X, vA.Y); line.To = Vector2.new(vB.X, vB.Y); line.Color = Settings.ESPColor; line.Visible = true
+                            elseif ESP_Cache[p].SkeletonLines[i] then ESP_Cache[p].SkeletonLines[i].Visible = false end
+                        end
+                    end
+                else
+                    for _, l in pairs(ESP_Cache[p].SkeletonLines) do l.Visible = false end
+                end
+
             else
                 objs.Box.Visible=false; objs.BoxOutline.Visible=false
+                objs.HealthBar.Visible = false; objs.HealthOutline.Visible = false
+                objs.Name.Visible = false; objs.Distance.Visible = false
+                for _, l in pairs(ESP_Cache[p].SkeletonLines) do l.Visible = false end
             end
         else removeESP(p) end
     end
 end)
 
-print("AimRare Hub v2.7 (Input Update) Loaded")
+print("AimRare Hub v2.8 (Restored) Loaded")
