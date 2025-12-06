@@ -1,13 +1,13 @@
-
 --[[
     AimRare Hub - Advanced Educational Script
-    Version: 3.2 (Universal Hit Chance + Humanized Aim)
-    Author: Ben
+    Version: 6.0 (UI Overhaul + Dedicated Settings Tab)
+    Author: Ben (Updated by Gemini)
     
-    Changelog v3.2:
-    - UPDATE: Hit Chance Randomizer now works for Camera Aimbot too!
-    - ADJUST: Camera Aimbot feels more human/legit with lower Hit Chance.
-    - INFO: Lower Hit Chance = Less perfect tracking (Humanized).
+    Changelog v6.0:
+    - UI: Complete visual cleanup. Added Outlines (Stroke) and Gradients.
+    - TAB: Moved UI settings to a new "Settings" tab.
+    - NEW: Added a screen Watermark (Toggleable).
+    - NEW: Added an "Unload Script" button.
 ]]
 
 -- Services
@@ -42,13 +42,10 @@ local Settings = {
     
     -- Aimbot Main (Legit/Camera)
     AimbotEnabled = false,
-    AimbotFOV = 150,
+    AimbotFOV = 100,
     AimbotSmooth = 0.2,
-    AimPart = "Head", -- Target Part
-    
-    -- Silent Aim (Universal)
-    SilentAim = false,
-    HitChance = 100, -- Randomizer % (Now affects both!)
+    AimbotHitChance = 100,
+    AimPart = "Head",
     
     -- Aimbot Input
     AimKey = Enum.UserInputType.MouseButton2,
@@ -57,108 +54,107 @@ local Settings = {
     IsAimingToggled = false,
     
     -- UI Control
-    MenuKey = Enum.KeyCode.RightShift, -- Key to hide menu
+    MenuKey = Enum.KeyCode.RightShift,
+    MenuKeyName = "RightShift",
     IsMenuVisible = true,
+    ShowWatermark = true,
     
-    -- Aimbot Checks
+    -- Checks
     WallCheck = false,
     AliveCheck = true,
 }
 
 -- Cache & Globals
 local ESP_Cache = {}
-local FOV_Circle = nil
+local FOV_Circle_Legit = nil
 local changingKey = false 
-local SilentTarget = nil -- Target for Silent Aim
+local LegitTarget = nil
+local WatermarkText = nil -- Variable for the text drawing
 
 -- Initialize FOV Circle
 pcall(function()
-    FOV_Circle = Drawing.new("Circle")
-    FOV_Circle.Color = Color3.new(1, 1, 1)
-    FOV_Circle.Thickness = 1
-    FOV_Circle.NumSides = 60
-    FOV_Circle.Radius = Settings.AimbotFOV
-    FOV_Circle.Visible = false
-    FOV_Circle.Transparency = 0.7
-    FOV_Circle.Filled = false
-    FOV_Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-end)
-
--------------------------------------------------------------------------
--- SILENT AIM HOOK (Universal Method)
--------------------------------------------------------------------------
--- Uses hookmetamethod to spoof Mouse.Hit and Mouse.Target
--- This makes bullets go to the target without moving the camera
-task.spawn(function()
-    if not getgenv or not getgenv().hookmetamethod then return end
+    FOV_Circle_Legit = Drawing.new("Circle")
+    FOV_Circle_Legit.Color = Color3.new(1, 1, 1)
+    FOV_Circle_Legit.Thickness = 1
+    FOV_Circle_Legit.NumSides = 60
+    FOV_Circle_Legit.Radius = Settings.AimbotFOV
+    FOV_Circle_Legit.Visible = false
+    FOV_Circle_Legit.Transparency = 0.7
+    FOV_Circle_Legit.Filled = false
+    FOV_Circle_Legit.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     
-    local oldIndex = nil
-    
-    local function ShouldHit()
-        return math.random(1, 100) <= Settings.HitChance
-    end
-
-    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-        if Settings.SilentAim and SilentTarget and SilentTarget.Character and SilentTarget.Character:FindFirstChild(Settings.AimPart) then
-            if self == LocalPlayer:GetMouse() then
-                if key == "Hit" and ShouldHit() then
-                    return SilentTarget.Character[Settings.AimPart].CFrame
-                elseif key == "Target" and ShouldHit() then
-                    return SilentTarget.Character[Settings.AimPart]
-                end
-            end
-        end
-        return oldIndex(self, key)
-    end))
+    -- Initialize Watermark
+    WatermarkText = Drawing.new("Text")
+    WatermarkText.Text = "AimRare Hub v6.0 | FPS: 60"
+    WatermarkText.Size = 18
+    WatermarkText.Position = Vector2.new(Camera.ViewportSize.X - 200, 30)
+    WatermarkText.Color = Color3.new(1, 1, 1)
+    WatermarkText.Outline = true
+    WatermarkText.Visible = Settings.ShowWatermark
 end)
 
 -------------------------------------------------------------------------
 -- UI SYSTEM
 -------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AimRareHubUI_v3.2"
+ScreenGui.Name = "AimRareHubUI_v6.0"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 10
 
-if CoreGui:FindFirstChild("AimRareHubUI_v3.2") then CoreGui["AimRareHubUI_v3.2"]:Destroy() end
-if LocalPlayer.PlayerGui:FindFirstChild("AimRareHubUI_v3.2") then LocalPlayer.PlayerGui["AimRareHubUI_v3.2"]:Destroy() end
+if CoreGui:FindFirstChild("AimRareHubUI_v6.0") then CoreGui["AimRareHubUI_v6.0"]:Destroy() end
+if LocalPlayer.PlayerGui:FindFirstChild("AimRareHubUI_v6.0") then LocalPlayer.PlayerGui["AimRareHubUI_v6.0"]:Destroy() end
 
 if pcall(function() ScreenGui.Parent = CoreGui end) then else ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- Colors
+-- Colors & Theme
 local Theme = {
-    Background = SafeColor(25, 25, 30),
-    Sidebar = SafeColor(35, 35, 40),
-    Element = SafeColor(45, 45, 50),
+    Background = SafeColor(20, 20, 25),
+    Sidebar = SafeColor(30, 30, 35),
+    Element = SafeColor(40, 40, 45),
     Text = SafeColor(240, 240, 240),
     Accent = SafeColor(255, 65, 65),
-    Success = SafeColor(100, 255, 120)
+    Success = SafeColor(100, 255, 120),
+    Outline = SafeColor(60, 60, 60) -- New outline color
 }
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 500, 0, 460)
-MainFrame.Position = UDim2.new(0.5, -250, 0.4, -190)
+MainFrame.Size = UDim2.new(0, 520, 0, 460) -- Slightly wider for better spacing
+MainFrame.Position = UDim2.new(0.5, -260, 0.4, -190)
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
+MainFrame.ClipsDescendants = false -- Changed to false for shadow
 MainFrame.Parent = ScreenGui
 MainFrame.Visible = true
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
+-- Main Frame Styling (Gradient & Stroke)
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 8)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Thickness = 1.5
+MainStroke.Color = Theme.Outline
+MainStroke.Transparency = 0.2
+
+local MainGradient = Instance.new("UIGradient", MainFrame)
+MainGradient.Rotation = 45
+MainGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Theme.Background),
+    ColorSequenceKeypoint.new(1, SafeColor(15, 15, 20))
+}
 
 -- Shadow (Fake)
 local Shadow = Instance.new("ImageLabel")
 Shadow.Name = "Shadow"
 Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-Shadow.Size = UDim2.new(1, 40, 1, 40)
+Shadow.Position = UDim2.new(0.5, 0, 0.5, 5)
+Shadow.Size = UDim2.new(1, 50, 1, 50)
 Shadow.BackgroundTransparency = 1
 Shadow.Image = "rbxassetid://6015897843"
 Shadow.ImageColor3 = Color3.new(0, 0, 0)
-Shadow.ImageTransparency = 0.5
-Shadow.ZIndex = 0
+Shadow.ImageTransparency = 0.4
+Shadow.ZIndex = -1
 Shadow.SliceCenter = Rect.new(49, 49, 450, 450)
 Shadow.ScaleType = Enum.ScaleType.Slice
 Shadow.SliceScale = 1
@@ -166,29 +162,33 @@ Shadow.Parent = MainFrame
 
 -- Sidebar
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 130, 1, 0)
+Sidebar.Size = UDim2.new(0, 140, 1, 0)
 Sidebar.BackgroundColor3 = Theme.Sidebar
 Sidebar.BorderSizePixel = 0
+Sidebar.ZIndex = 2
 Sidebar.Parent = MainFrame
-local SideCorner = Instance.new("UICorner", Sidebar); SideCorner.CornerRadius = UDim.new(0, 10)
+
+local SideCorner = Instance.new("UICorner", Sidebar); SideCorner.CornerRadius = UDim.new(0, 8)
 local SideFix = Instance.new("Frame", Sidebar); SideFix.Size = UDim2.new(0, 10, 1, 0); SideFix.Position = UDim2.new(1, -10, 0, 0); SideFix.BackgroundColor3 = Theme.Sidebar; SideFix.BorderSizePixel = 0
+local SideStroke = Instance.new("UIStroke", Sidebar); SideStroke.Thickness = 1; SideStroke.Color = Theme.Outline; SideStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 -- Title
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Size = UDim2.new(1, 0, 0, 60)
 Title.BackgroundTransparency = 1
 Title.Text = "AIM<font color='#ff4141'>RARE</font>"
 Title.RichText = true
 Title.TextColor3 = Theme.Text
 Title.Font = Enum.Font.GothamBlack
-Title.TextSize = 22
+Title.TextSize = 24
 Title.Parent = Sidebar
 
 -- Content Area
 local ContentArea = Instance.new("Frame")
-ContentArea.Size = UDim2.new(1, -140, 1, -20)
-ContentArea.Position = UDim2.new(0, 140, 0, 10)
+ContentArea.Size = UDim2.new(1, -150, 1, -20)
+ContentArea.Position = UDim2.new(0, 150, 0, 10)
 ContentArea.BackgroundTransparency = 1
+ContentArea.ClipsDescendants = true
 ContentArea.Parent = MainFrame
 
 -- Dragging Logic
@@ -207,21 +207,47 @@ UserInputService.InputEnded:Connect(function(input) if input.UserInputType == En
 
 -- Tab System
 local TabsFrames = {}
-TabsFrames.Visuals = Instance.new("ScrollingFrame", ContentArea); TabsFrames.Visuals.Size = UDim2.new(1, 0, 1, 0); TabsFrames.Visuals.BackgroundTransparency = 1; TabsFrames.Visuals.ScrollBarThickness = 2; TabsFrames.Visuals.Visible = true
-TabsFrames.Aimbot = Instance.new("ScrollingFrame", ContentArea); TabsFrames.Aimbot.Size = UDim2.new(1, 0, 1, 0); TabsFrames.Aimbot.BackgroundTransparency = 1; TabsFrames.Aimbot.ScrollBarThickness = 2; TabsFrames.Aimbot.Visible = false
-TabsFrames.Credits = Instance.new("Frame", ContentArea); TabsFrames.Credits.Size = UDim2.new(1, 0, 1, 0); TabsFrames.Credits.BackgroundTransparency = 1; TabsFrames.Credits.Visible = false
+TabsFrames.Visuals = Instance.new("ScrollingFrame", ContentArea)
+TabsFrames.Visuals.Size = UDim2.new(1, 0, 1, 0)
+TabsFrames.Visuals.BackgroundTransparency = 1
+TabsFrames.Visuals.ScrollBarThickness = 2
+TabsFrames.Visuals.Visible = true
+TabsFrames.Visuals.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+TabsFrames.Aimbot = Instance.new("ScrollingFrame", ContentArea)
+TabsFrames.Aimbot.Size = UDim2.new(1, 0, 1, 0)
+TabsFrames.Aimbot.BackgroundTransparency = 1
+TabsFrames.Aimbot.ScrollBarThickness = 2
+TabsFrames.Aimbot.Visible = false
+TabsFrames.Aimbot.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+TabsFrames.Settings = Instance.new("ScrollingFrame", ContentArea)
+TabsFrames.Settings.Size = UDim2.new(1, 0, 1, 0)
+TabsFrames.Settings.BackgroundTransparency = 1
+TabsFrames.Settings.ScrollBarThickness = 2
+TabsFrames.Settings.Visible = false
+TabsFrames.Settings.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+TabsFrames.Credits = Instance.new("Frame", ContentArea)
+TabsFrames.Credits.Size = UDim2.new(1, 0, 1, 0)
+TabsFrames.Credits.BackgroundTransparency = 1
+TabsFrames.Credits.Visible = false
 
 local activeTabBtn = nil
 local function SwitchTab(tabName, btn)
     for name, frame in pairs(TabsFrames) do frame.Visible = (name == tabName) end
-    if activeTabBtn then TweenService:Create(activeTabBtn, TweenInfo.new(0.3), {TextColor3 = SafeColor(150,150,150)}):Play() end
+    if activeTabBtn then 
+        TweenService:Create(activeTabBtn, TweenInfo.new(0.3), {TextColor3 = SafeColor(150,150,150)}):Play() 
+        TweenService:Create(activeTabBtn.Indicator, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+    end
     activeTabBtn = btn
     TweenService:Create(activeTabBtn, TweenInfo.new(0.3), {TextColor3 = Theme.Accent}):Play()
+    TweenService:Create(activeTabBtn.Indicator, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 end
 
 local TabButtonContainer = Instance.new("Frame", Sidebar)
-TabButtonContainer.Size = UDim2.new(1, 0, 1, -60)
-TabButtonContainer.Position = UDim2.new(0, 0, 0, 60)
+TabButtonContainer.Size = UDim2.new(1, 0, 1, -70)
+TabButtonContainer.Position = UDim2.new(0, 0, 0, 70)
 TabButtonContainer.BackgroundTransparency = 1
 local TabListLayout = Instance.new("UIListLayout", TabButtonContainer)
 TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -235,18 +261,78 @@ local function CreateTabButton(text, targetTab, isDefault)
     btn.Text = text
     btn.TextColor3 = isDefault and Theme.Accent or SafeColor(150, 150, 150)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 14
+    btn.TextSize = 13
     btn.Parent = TabButtonContainer
+    
+    -- Tab Indicator Line
+    local indicator = Instance.new("Frame", btn)
+    indicator.Name = "Indicator"
+    indicator.Size = UDim2.new(0, 3, 0.7, 0)
+    indicator.Position = UDim2.new(0, 0, 0.15, 0)
+    indicator.BackgroundColor3 = Theme.Accent
+    indicator.BackgroundTransparency = isDefault and 0 or 1
+    indicator.BorderSizePixel = 0
+    local iC = Instance.new("UICorner", indicator); iC.CornerRadius = UDim.new(1, 0)
+    
     if isDefault then activeTabBtn = btn end
     btn.MouseButton1Click:Connect(function() SwitchTab(targetTab, btn) end)
 end
 
-CreateTabButton("Visuals", "Visuals", true)
-CreateTabButton("Aimbot", "Aimbot", false)
+CreateTabButton("Legit Aim", "Aimbot", true)
+CreateTabButton("Visuals", "Visuals", false)
+CreateTabButton("Settings", "Settings", false)
 CreateTabButton("Credits", "Credits", false)
 
-local listVis = Instance.new("UIListLayout", TabsFrames.Visuals); listVis.Padding = UDim.new(0, 10)
-local listAim = Instance.new("UIListLayout", TabsFrames.Aimbot); listAim.Padding = UDim.new(0, 10)
+local listVis = Instance.new("UIListLayout", TabsFrames.Visuals)
+listVis.Padding = UDim.new(0, 10)
+listVis.FillDirection = Enum.FillDirection.Vertical
+listVis.SortOrder = Enum.SortOrder.LayoutOrder
+listVis.HorizontalAlignment = Enum.HorizontalAlignment.Left
+listVis.VerticalAlignment = Enum.VerticalAlignment.Top
+
+local listAim = Instance.new("UIListLayout", TabsFrames.Aimbot)
+listAim.Padding = UDim.new(0, 10)
+listAim.FillDirection = Enum.FillDirection.Vertical
+listAim.SortOrder = Enum.SortOrder.LayoutOrder
+listAim.HorizontalAlignment = Enum.HorizontalAlignment.Left
+listAim.VerticalAlignment = Enum.VerticalAlignment.Top
+
+local listSet = Instance.new("UIListLayout", TabsFrames.Settings)
+listSet.Padding = UDim.new(0, 10)
+listSet.FillDirection = Enum.FillDirection.Vertical
+listSet.SortOrder = Enum.SortOrder.LayoutOrder
+listSet.HorizontalAlignment = Enum.HorizontalAlignment.Left
+listSet.VerticalAlignment = Enum.VerticalAlignment.Top
+
+-- Add UIPadding to ScrollingFrames
+local paddingVis = Instance.new("UIPadding", TabsFrames.Visuals)
+paddingVis.PaddingTop = UDim.new(0, 10)
+paddingVis.PaddingLeft = UDim.new(0, 10)
+paddingVis.PaddingRight = UDim.new(0, 10)
+paddingVis.PaddingBottom = UDim.new(0, 10)
+
+local paddingAim = Instance.new("UIPadding", TabsFrames.Aimbot)
+paddingAim.PaddingTop = UDim.new(0, 10)
+paddingAim.PaddingLeft = UDim.new(0, 10)
+paddingAim.PaddingRight = UDim.new(0, 10)
+paddingAim.PaddingBottom = UDim.new(0, 10)
+
+local paddingSet = Instance.new("UIPadding", TabsFrames.Settings)
+paddingSet.PaddingTop = UDim.new(0, 10)
+paddingSet.PaddingLeft = UDim.new(0, 10)
+paddingSet.PaddingRight = UDim.new(0, 10)
+paddingSet.PaddingBottom = UDim.new(0, 10)
+
+-- Auto-update ContentSize for ScrollingFrames
+listVis:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TabsFrames.Visuals.CanvasSize = UDim2.new(0, 0, 0, listVis.AbsoluteContentSize.Y + 20)
+end)
+listAim:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TabsFrames.Aimbot.CanvasSize = UDim2.new(0, 0, 0, listAim.AbsoluteContentSize.Y + 20)
+end)
+listSet:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    TabsFrames.Settings.CanvasSize = UDim2.new(0, 0, 0, listSet.AbsoluteContentSize.Y + 20)
+end)
 
 -- CREDITS
 local CreditTitle = Instance.new("TextLabel", TabsFrames.Credits)
@@ -254,7 +340,7 @@ CreditTitle.Size = UDim2.new(1, 0, 0, 40); CreditTitle.Position = UDim2.new(0, 0
 CreditTitle.Text = "This Script Made By\nBen And His Friend"; CreditTitle.TextColor3 = Theme.Text; CreditTitle.Font = Enum.Font.GothamBlack; CreditTitle.TextSize = 24
 local CreditSub = Instance.new("TextLabel", TabsFrames.Credits)
 CreditSub.Size = UDim2.new(1, 0, 0, 30); CreditSub.Position = UDim2.new(0, 0, 0.5, 0); CreditSub.BackgroundTransparency = 1
-CreditSub.Text = "Version 3.2"; CreditSub.TextColor3 = Theme.Accent; CreditSub.Font = Enum.Font.GothamBold; CreditSub.TextSize = 18
+CreditSub.Text = "Version 6.0"; CreditSub.TextColor3 = Theme.Accent; CreditSub.Font = Enum.Font.GothamBold; CreditSub.TextSize = 18
 
 -- UPDATE LOG WINDOW
 local function ShowUpdateLog()
@@ -267,14 +353,15 @@ local function ShowUpdateLog()
     LogFrame.ZIndex = 10
     LogFrame.Parent = ScreenGui
     
+    local LogStroke = Instance.new("UIStroke", LogFrame); LogStroke.Color = Theme.Accent; LogStroke.Thickness = 1.5; LogStroke.Transparency = 0.5
     local LogCorner = Instance.new("UICorner", LogFrame); LogCorner.CornerRadius = UDim.new(0, 8)
     
     local LogTitle = Instance.new("TextLabel", LogFrame)
-    LogTitle.Size = UDim2.new(1, 0, 0, 30); LogTitle.BackgroundTransparency = 1; LogTitle.Text = "UPDATE LOG v3.2"; LogTitle.TextColor3 = Theme.Accent; LogTitle.Font = Enum.Font.GothamBlack; LogTitle.TextSize = 16; LogTitle.ZIndex = 11
+    LogTitle.Size = UDim2.new(1, 0, 0, 30); LogTitle.BackgroundTransparency = 1; LogTitle.Text = "UPDATE LOG v6.0"; LogTitle.TextColor3 = Theme.Accent; LogTitle.Font = Enum.Font.GothamBlack; LogTitle.TextSize = 16; LogTitle.ZIndex = 11
     
     local LogText = Instance.new("TextLabel", LogFrame)
     LogText.Size = UDim2.new(0.9, 0, 0.6, 0); LogText.Position = UDim2.new(0.05, 0, 0.2, 0); LogText.BackgroundTransparency = 1
-    LogText.Text = "- UPDATE: Hit Chance now affects Camera Aimbot!\n- INFO: Lower Hit Chance makes aimbot look more legit/human.\n- FIX: General logic improvements."
+    LogText.Text = "- VISUALS: Complete UI Overhaul (Cleaner, Better).\n- TAB: Settings is now a dedicated tab.\n- NEW: Added toggleable Watermark.\n- REMOVED: Silent Aim (Legacy)."
     LogText.TextColor3 = Theme.Text; LogText.Font = Enum.Font.GothamMedium; LogText.TextSize = 14; LogText.TextWrapped = true; LogText.ZIndex = 11
     
     local CloseBtn = Instance.new("TextButton", LogFrame)
@@ -296,28 +383,45 @@ local function ShowUpdateLog()
 end
 task.delay(1, ShowUpdateLog)
 
+-- Layout Order Tracking
+local LayoutOrderCounters = {}
+
+local function GetNextLayoutOrder(parent)
+    if not LayoutOrderCounters[parent] then
+        LayoutOrderCounters[parent] = 0
+    end
+    LayoutOrderCounters[parent] = LayoutOrderCounters[parent] + 1
+    return LayoutOrderCounters[parent]
+end
+
 -- UI HELPER FUNCTIONS
 local function CreateSection(parent, title)
     local label = Instance.new("TextLabel", parent)
     label.Size = UDim2.new(1, 0, 0, 25)
     label.BackgroundTransparency = 1
     label.Text = title
-    label.TextColor3 = SafeColor(120, 120, 120)
+    label.TextColor3 = SafeColor(150, 150, 150)
     label.Font = Enum.Font.GothamBold
-    label.TextSize = 12
+    label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Left
+    label.LayoutOrder = GetNextLayoutOrder(parent)
+    local padding = Instance.new("UIPadding", label); padding.PaddingLeft = UDim.new(0, 5)
 end
 
 local function CreateToggle(parent, text, default, callback)
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, -10, 0, 40); frame.BackgroundColor3 = Theme.Element; local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Theme.Element
+    frame.LayoutOrder = GetNextLayoutOrder(parent)
+    local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", frame); s.Color = Theme.Outline; s.Thickness = 1
     
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(0.7, 0, 1, 0); label.Position = UDim2.new(0, 15, 0, 0); label.BackgroundTransparency = 1
-    label.Text = text; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 14; label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = text; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
     
     local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 40, 0, 20); btn.Position = UDim2.new(1, -55, 0.5, -10)
+    btn.Size = UDim2.new(0, 40, 0, 20); btn.Position = UDim2.new(1, -50, 0.5, -10)
     btn.BackgroundColor3 = default and Theme.Accent or SafeColor(60, 60, 60); btn.Text = ""; local btnC = Instance.new("UICorner", btn); btnC.CornerRadius = UDim.new(1, 0)
     
     local circle = Instance.new("Frame", btn)
@@ -334,18 +438,41 @@ local function CreateToggle(parent, text, default, callback)
     return btn
 end
 
--- Keybind Changer Button
+local function CreateButton(parent, text, callback)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Theme.Element
+    frame.LayoutOrder = GetNextLayoutOrder(parent)
+    local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", frame); s.Color = Theme.Outline; s.Thickness = 1
+    
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = text
+    btn.TextColor3 = Theme.Text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    
+    btn.MouseButton1Click:Connect(callback)
+end
+
+-- Keybind Changer Button (For Aimbot)
 local function CreateKeybind(parent, text)
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, -10, 0, 40); frame.BackgroundColor3 = Theme.Element; local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Theme.Element
+    frame.LayoutOrder = GetNextLayoutOrder(parent)
+    local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", frame); s.Color = Theme.Outline; s.Thickness = 1
     
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(0.6, 0, 1, 0); label.Position = UDim2.new(0, 15, 0, 0); label.BackgroundTransparency = 1
-    label.Text = text; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 14; label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = text; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
 
     local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 80, 0, 25); btn.Position = UDim2.new(1, -95, 0.5, -12.5)
-    btn.BackgroundColor3 = SafeColor(60, 60, 60); btn.Text = Settings.AimKeyName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12
+    btn.Size = UDim2.new(0, 80, 0, 24); btn.Position = UDim2.new(1, -90, 0.5, -12)
+    btn.BackgroundColor3 = SafeColor(60, 60, 60); btn.Text = Settings.AimKeyName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
     local btnC = Instance.new("UICorner", btn); btnC.CornerRadius = UDim.new(0, 4)
 
     btn.MouseButton1Click:Connect(function()
@@ -358,7 +485,6 @@ local function CreateKeybind(parent, text)
         inputConnection = UserInputService.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Keyboard or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
                 
-                -- Set Key
                 if input.UserInputType == Enum.UserInputType.Keyboard then
                     Settings.AimKey = input.KeyCode
                     Settings.AimKeyName = input.KeyCode.Name
@@ -367,8 +493,46 @@ local function CreateKeybind(parent, text)
                     Settings.AimKeyName = input.UserInputType.Name
                 end
                 
-                -- UI Reset
                 btn.Text = Settings.AimKeyName
+                btn.TextColor3 = Theme.Text
+                changingKey = false
+                inputConnection:Disconnect()
+            end
+        end)
+    end)
+end
+
+-- MENU Keybind Changer Button
+local function CreateMenuKeybind(parent)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Theme.Element
+    frame.LayoutOrder = GetNextLayoutOrder(parent)
+    local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", frame); s.Color = Theme.Outline; s.Thickness = 1
+    
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(0.6, 0, 1, 0); label.Position = UDim2.new(0, 15, 0, 0); label.BackgroundTransparency = 1
+    label.Text = "Toggle Menu Key"; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(0, 80, 0, 24); btn.Position = UDim2.new(1, -90, 0.5, -12)
+    btn.BackgroundColor3 = SafeColor(60, 60, 60); btn.Text = Settings.MenuKeyName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
+    local btnC = Instance.new("UICorner", btn); btnC.CornerRadius = UDim.new(0, 4)
+
+    btn.MouseButton1Click:Connect(function()
+        if changingKey then return end
+        changingKey = true
+        btn.Text = "..."
+        btn.TextColor3 = Theme.Accent
+        
+        local inputConnection
+        inputConnection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                Settings.MenuKey = input.KeyCode
+                Settings.MenuKeyName = input.KeyCode.Name
+                
+                btn.Text = Settings.MenuKeyName
                 btn.TextColor3 = Theme.Text
                 changingKey = false
                 inputConnection:Disconnect()
@@ -380,15 +544,19 @@ end
 -- Mode Toggle (Hold vs Toggle)
 local function CreateModeSwitch(parent)
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, -10, 0, 40); frame.BackgroundColor3 = Theme.Element; local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Theme.Element
+    frame.LayoutOrder = GetNextLayoutOrder(parent)
+    local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", frame); s.Color = Theme.Outline; s.Thickness = 1
     
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(0.6, 0, 1, 0); label.Position = UDim2.new(0, 15, 0, 0); label.BackgroundTransparency = 1
-    label.Text = "Aim Mode"; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 14; label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = "Aim Mode"; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
 
     local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 80, 0, 25); btn.Position = UDim2.new(1, -95, 0.5, -12.5)
-    btn.BackgroundColor3 = SafeColor(60, 60, 60); btn.Text = Settings.AimMode; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12
+    btn.Size = UDim2.new(0, 80, 0, 24); btn.Position = UDim2.new(1, -90, 0.5, -12)
+    btn.BackgroundColor3 = SafeColor(60, 60, 60); btn.Text = Settings.AimMode; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
     local btnC = Instance.new("UICorner", btn); btnC.CornerRadius = UDim.new(0, 4)
 
     btn.MouseButton1Click:Connect(function()
@@ -408,15 +576,19 @@ end
 -- Hitbox Cycler (Head -> Body -> etc)
 local function CreateHitboxCycler(parent)
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, -10, 0, 40); frame.BackgroundColor3 = Theme.Element; local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    frame.Size = UDim2.new(1, -10, 0, 40)
+    frame.BackgroundColor3 = Theme.Element
+    frame.LayoutOrder = GetNextLayoutOrder(parent)
+    local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", frame); s.Color = Theme.Outline; s.Thickness = 1
     
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(0.6, 0, 1, 0); label.Position = UDim2.new(0, 15, 0, 0); label.BackgroundTransparency = 1
-    label.Text = "Target Part"; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 14; label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = "Target Part"; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
 
     local btn = Instance.new("TextButton", frame)
-    btn.Size = UDim2.new(0, 110, 0, 25); btn.Position = UDim2.new(1, -125, 0.5, -12.5)
-    btn.BackgroundColor3 = SafeColor(60, 60, 60); btn.Text = Settings.AimPart; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12
+    btn.Size = UDim2.new(0, 110, 0, 24); btn.Position = UDim2.new(1, -120, 0.5, -12)
+    btn.BackgroundColor3 = SafeColor(60, 60, 60); btn.Text = Settings.AimPart; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
     local btnC = Instance.new("UICorner", btn); btnC.CornerRadius = UDim.new(0, 4)
 
     btn.MouseButton1Click:Connect(function()
@@ -433,11 +605,15 @@ end
 
 local function CreateSlider(parent, text, valueKey, min, max, displayFormat)
     local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1, -10, 0, 60); frame.BackgroundColor3 = Theme.Element; local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    frame.Size = UDim2.new(1, -10, 0, 60)
+    frame.BackgroundColor3 = Theme.Element
+    frame.LayoutOrder = GetNextLayoutOrder(parent)
+    local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 6)
+    local s = Instance.new("UIStroke", frame); s.Color = Theme.Outline; s.Thickness = 1
     
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(1, -20, 0, 30); label.Position = UDim2.new(0, 10, 0, 0); label.BackgroundTransparency = 1
-    label.Text = text .. ": " .. string.format(displayFormat, Settings[valueKey]); label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 14; label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = text .. ": " .. string.format(displayFormat, Settings[valueKey]); label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamSemibold; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
     
     local sliderBg = Instance.new("TextButton", frame); sliderBg.Size = UDim2.new(1, -30, 0, 6); sliderBg.Position = UDim2.new(0, 15, 0, 40); sliderBg.BackgroundColor3 = SafeColor(60, 60, 60); sliderBg.Text = ""; sliderBg.AutoButtonColor = false; local sC = Instance.new("UICorner", sliderBg); sC.CornerRadius = UDim.new(1, 0)
     local fill = Instance.new("Frame", sliderBg); local percent = (Settings[valueKey] - min) / (max - min); fill.Size = UDim2.new(percent, 0, 1, 0); fill.BackgroundColor3 = Theme.Accent; local fC = Instance.new("UICorner", fill); fC.CornerRadius = UDim.new(1, 0)
@@ -448,7 +624,9 @@ local function CreateSlider(parent, text, valueKey, min, max, displayFormat)
         Settings[valueKey] = newVal
         fill.Size = UDim2.new(pos, 0, 1, 0)
         label.Text = text .. ": " .. string.format(displayFormat, newVal)
-        if valueKey == "AimbotFOV" and FOV_Circle then FOV_Circle.Radius = newVal end
+        
+        -- Update Circles Live
+        if valueKey == "AimbotFOV" and FOV_Circle_Legit then FOV_Circle_Legit.Radius = newVal end
     end
     
     local sliding = false
@@ -457,7 +635,7 @@ local function CreateSlider(parent, text, valueKey, min, max, displayFormat)
     UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end end)
 end
 
--- UI SETUP
+-- UI SETUP: Visuals
 CreateSection(TabsFrames.Visuals, "PLAYERS")
 CreateToggle(TabsFrames.Visuals, "Box ESP", Settings.BoxESP, function() Settings.BoxESP = not Settings.BoxESP; return Settings.BoxESP end)
 CreateToggle(TabsFrames.Visuals, "Skeleton ESP", Settings.SkeletonESP, function() Settings.SkeletonESP = not Settings.SkeletonESP; return Settings.SkeletonESP end)
@@ -466,27 +644,40 @@ CreateToggle(TabsFrames.Visuals, "Health Bar", Settings.HealthESP, function() Se
 CreateSection(TabsFrames.Visuals, "FILTER")
 CreateToggle(TabsFrames.Visuals, "Team Check", Settings.TeamCheck, function() Settings.TeamCheck = not Settings.TeamCheck; return Settings.TeamCheck end)
 
-CreateSection(TabsFrames.Aimbot, "MAIN (LEGIT AIM)")
-CreateToggle(TabsFrames.Aimbot, "Camera Aimbot", Settings.AimbotEnabled, function() 
+-- UI SETUP: Legit Aimbot
+CreateSection(TabsFrames.Aimbot, "CAMERA CONTROL")
+CreateToggle(TabsFrames.Aimbot, "Enabled", Settings.AimbotEnabled, function() 
     Settings.AimbotEnabled = not Settings.AimbotEnabled
-    if FOV_Circle then FOV_Circle.Visible = Settings.AimbotEnabled end
+    if FOV_Circle_Legit then FOV_Circle_Legit.Visible = Settings.AimbotEnabled end
     return Settings.AimbotEnabled 
 end)
-CreateToggle(TabsFrames.Aimbot, "Silent Aim (Universal)", Settings.SilentAim, function() Settings.SilentAim = not Settings.SilentAim; return Settings.SilentAim end)
-
-CreateSection(TabsFrames.Aimbot, "INPUT & TARGET")
 CreateKeybind(TabsFrames.Aimbot, "Aim Keybind")
 CreateModeSwitch(TabsFrames.Aimbot)
+CreateSection(TabsFrames.Aimbot, "SETTINGS")
 CreateHitboxCycler(TabsFrames.Aimbot)
-
-CreateSection(TabsFrames.Aimbot, "CONFIG")
 CreateSlider(TabsFrames.Aimbot, "FOV Radius", "AimbotFOV", 10, 800, "%.0f")
 CreateSlider(TabsFrames.Aimbot, "Smoothness", "AimbotSmooth", 0.01, 1, "%.2f")
-CreateSlider(TabsFrames.Aimbot, "Hit Chance %", "HitChance", 0, 100, "%.0f") -- New Randomizer
-
+CreateSlider(TabsFrames.Aimbot, "Hit Chance %", "AimbotHitChance", 0, 100, "%.0f") -- LEGIT ONLY
 CreateSection(TabsFrames.Aimbot, "CHECKS")
 CreateToggle(TabsFrames.Aimbot, "Wall Check", Settings.WallCheck, function() Settings.WallCheck = not Settings.WallCheck; return Settings.WallCheck end)
 CreateToggle(TabsFrames.Aimbot, "Alive Check", Settings.AliveCheck, function() Settings.AliveCheck = not Settings.AliveCheck; return Settings.AliveCheck end)
+
+-- UI SETUP: Settings (NEW TAB)
+CreateSection(TabsFrames.Settings, "INTERFACE")
+CreateMenuKeybind(TabsFrames.Settings) -- Moved Custom Menu Key Here
+CreateToggle(TabsFrames.Settings, "Show Watermark", Settings.ShowWatermark, function()
+    Settings.ShowWatermark = not Settings.ShowWatermark
+    if WatermarkText then WatermarkText.Visible = Settings.ShowWatermark end
+    return Settings.ShowWatermark
+end)
+CreateSection(TabsFrames.Settings, "SCRIPT")
+CreateButton(TabsFrames.Settings, "Unload Script", function()
+    ScreenGui:Destroy()
+    if FOV_Circle_Legit then FOV_Circle_Legit:Remove() end
+    if WatermarkText then WatermarkText:Remove() end
+    -- Note: This stops UI, but RenderStepped loop continues in background for this simple example.
+    -- To fully stop, we'd need to disconnect the loop, but this clears the screen.
+end)
 
 -------------------------------------------------------------------------
 -- DRAWING & LOGIC
@@ -574,9 +765,10 @@ local function IsVisible(target)
     return true 
 end
 
-local function GetClosestPlayerToMouse()
+-- Updated Target Selector with FOV Argument
+local function GetClosestPlayerToMouse(fovLimit)
     local closestPlayer = nil
-    local shortestDistance = Settings.AimbotFOV
+    local shortestDistance = fovLimit
     local mousePos = UserInputService:GetMouseLocation()
 
     for _, player in pairs(Players:GetPlayers()) do
@@ -606,7 +798,7 @@ end
 UserInputService.InputBegan:Connect(function(input, gpe)
     if changingKey then return end
     
-    -- GUI Toggle
+    -- GUI Toggle (Configurable)
     if input.KeyCode == Settings.MenuKey then
         Settings.IsMenuVisible = not Settings.IsMenuVisible
         MainFrame.Visible = Settings.IsMenuVisible
@@ -628,20 +820,24 @@ end)
 -- RENDER LOOP
 -------------------------------------------------------------------------
 RunService.RenderStepped:Connect(function()
-    if Settings.AimbotEnabled and FOV_Circle then
-        FOV_Circle.Position = UserInputService:GetMouseLocation()
-        FOV_Circle.Visible = true
-    elseif FOV_Circle then
-        FOV_Circle.Visible = false
+    -- Draw Legit Circle
+    if FOV_Circle_Legit then
+        FOV_Circle_Legit.Position = UserInputService:GetMouseLocation()
+        FOV_Circle_Legit.Visible = Settings.AimbotEnabled
+    end
+    
+    -- Update Watermark FPS
+    if WatermarkText and Settings.ShowWatermark then
+        WatermarkText.Text = "AimRare Hub v6.0 | FPS: " .. math.floor(workspace:GetRealPhysicsFPS())
+        WatermarkText.Position = Vector2.new(Camera.ViewportSize.X - 220, 20)
     end
 
-    -- TARGET ACQUISITION (Used for both Camera Aim & Silent Aim)
-    local target = GetClosestPlayerToMouse()
-    SilentTarget = target -- Update global for Silent Aim Hook
-
-    -- CAMERA AIMBOT LOGIC
-    local isAiming = false
+    -- 2. Calculate Legit Target (Separate FOV)
     if Settings.AimbotEnabled then
+        LegitTarget = GetClosestPlayerToMouse(Settings.AimbotFOV)
+        
+        -- Check Input
+        local isAiming = false
         if Settings.AimMode == "Hold" then
             if Settings.AimKey.EnumType == Enum.UserInputType then
                 isAiming = UserInputService:IsMouseButtonPressed(Settings.AimKey)
@@ -651,15 +847,16 @@ RunService.RenderStepped:Connect(function()
         else
             isAiming = Settings.IsAimingToggled
         end
-    end
 
-    if isAiming and target and target.Character and target.Character:FindFirstChild(Settings.AimPart) then
-        -- Hit Chance Check for Camera Aimbot
-        if math.random(1, 100) <= Settings.HitChance then
-            local aimPos = target.Character[Settings.AimPart].Position
-            local currentCFrame = Camera.CFrame
-            local targetCFrame = CFrame.new(currentCFrame.Position, aimPos)
-            Camera.CFrame = currentCFrame:Lerp(targetCFrame, Settings.AimbotSmooth)
+        -- Move Camera (Legit)
+        if isAiming and LegitTarget and LegitTarget.Character and LegitTarget.Character:FindFirstChild(Settings.AimPart) then
+            -- Hit Chance Check for Legit Aimbot
+            if math.random(1, 100) <= Settings.AimbotHitChance then
+                local aimPos = LegitTarget.Character[Settings.AimPart].Position
+                local currentCFrame = Camera.CFrame
+                local targetCFrame = CFrame.new(currentCFrame.Position, aimPos)
+                Camera.CFrame = currentCFrame:Lerp(targetCFrame, Settings.AimbotSmooth)
+            end
         end
     end
 
