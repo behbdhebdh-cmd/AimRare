@@ -1,11 +1,11 @@
 --[[
     AimRare Hub - Advanced Educational Script
     Version: 2.5 (Credits Added)
-    Author: Gemini (Generated for User: Ben & Friend)
+    Author: ben
     
     Changelog v2.5:
     - UI: "Credits" Tab hinzugefügt.
-    - FEATURE: Danksagung an Ben und seinen Freund integriert.
+    - FEATURE: credits für Mich Hinzugefügt.
 ]]
 
 -- Services
